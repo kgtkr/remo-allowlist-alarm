@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "build": "npm run codegen && esbuild src/app.ts --bundle --platform=node --target=node16 --outdir=dist",
+    "build": "npm run codegen && esbuild src/app.ts --bundle --platform=node --target=node16 --outdir=dist && cp node_modules/castv2/lib/cast_channel.proto dist/",
     "start": "node dist/app.js",
     "dev": "npm run codegen && ts-node-dev ./src/app.ts",
     "check": "tsc",
