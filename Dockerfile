@@ -13,6 +13,6 @@ FROM node:16.17.0-alpine
 
 WORKDIR /workdir
 
-COPY --from=build /workdir/dist/app.js ./
+COPY --from=build /workdir/dist ./
 
 CMD ["node", "app.js"]
