@@ -1,0 +1,772 @@
+swagger: '2.0'
+info:
+  version: 1.0.0
+  title: Nature API
+  description: Read/Write Nature Remo
+host: api.nature.global
+basePath: /
+schemes:
+  - https
+consumes:
+  - application/x-www-form-urlencoded
+produces:
+  - application/json
+securityDefinitions:
+  oauth2:
+    type: oauth2
+    scopes:
+      basic.read: Read only access to user's profile (excluding email), Remos, appliances, signals.
+      basic: Read + write access to user's profile (excluding email), Remos, appliances, signals.
+      sendir: Send infrared signals through Remo.
+      detectappliance: Detect air conditioner model from infrared signals.
+    flow: accessCode
+    authorizationUrl: https://api.nature.global/oauth2/auth
+    tokenUrl: https://api.nature.global/oauth2/token
+parameters:
+  device:
+    name: device
+    in: path
+    description: Device ID.
+    type: string
+    required: true
+  appliance:
+    name: appliance
+    in: path
+    description: Appliance ID.
+    type: string
+    required: true
+  applianceImage:
+    name: image
+    in: formData
+    description: |
+      Basename of the image file included in the app. Ex: "ico_ac_1"
+    type: string
+    required: true
+  signal:
+    name: signal
+    in: path
+    description: Signal ID.
+    type: string
+    required: true
+  signalImage:
+    name: image
+    in: formData
+    description: |
+      Basename of the image file included in the app. Ex: "ico_io"
+    type: string
+    required: true
+  irsignal:
+    name: message
+    in: formData
+    description: JSON serialized object describing infrared signals. Includes "data", "freq" and "format" keys.
+    type: string
+    required: true
+    x-example: |
+      {\"freq\":38,\"data\":[2523,2717,786,903,777,924,763,1964,768,1958,769,1955,772,1953,773,914,770,902,786,54147,2523,2721,782,920,761,924,773,1936,779,1948,784,1957,768,1942,784,921,758,924,772],\"format\":\"us\"}
+
+paths:
+  /1/users/me:
+    get:
+      description: Fetch the authenticated user's information.
+      security:
+       - oauth2:
+         - basic.read
+      responses:
+        200:
+          description: User information
+          schema:
+            $ref: '#/definitions/User'
+    post:
+      description: Update authenticated user's information.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - name: nickname
+          in: formData
+          description: |
+            User's nickname.
+          type: string
+          required: true
+      responses:
+        200:
+          description: Successfully updated nickname
+          schema:
+            $ref: '#/definitions/User'
+  /1/devices:
+    get:
+      description: Fetch the list of Remo devices the user has access to.
+      security:
+       - oauth2:
+         - basic.read
+      responses:
+        200:
+          description: List of Remo devices
+          schema:
+            $ref: '#/definitions/Devices'
+  /1/detectappliance:
+    post:
+      description: Find the air conditioner best matching the provided infrared signal.
+      security:
+       - oauth2:
+         - detectappliance
+      parameters:
+        - $ref: '#/parameters/irsignal'
+      responses:
+        200:
+          description: List of air conditioner model and settings. Best match comes first.
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/ApplianceModelAndParam'
+  /1/appliances:
+    get:
+      description: Fetch the list of appliances.
+      security:
+       - oauth2:
+         - basic.read
+      responses:
+        200:
+          description: List of appliances
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Appliance'
+    post:
+      description: Create a new appliance.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - name: nickname
+          in: formData
+          description: Appliance name
+          type: string
+          required: true
+        - name: model
+          in: formData
+          description: ApplianceModel ID if the appliance we're trying to create is included in IRDB.
+          type: string
+          required: false
+        - name: model_type
+          in: formData
+          type: string
+          enum:
+            - AC
+            - TV
+            - LIGHT
+          required: false
+        - name: device
+          in: formData
+          description: Device ID
+          type: string
+          required: true
+        - $ref: '#/parameters/applianceImage'
+      responses:
+        201:
+          description: Created an appliance
+          schema:
+            $ref: '#/definitions/Appliance'
+  /1/appliance_orders:
+    post:
+      description: Reorder appliances.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - name: appliances
+          in: formData
+          description: List of all appliances' IDs comma separated
+          type: string
+          required: true
+      responses:
+        200:
+          description: Reordered appliances
+  /1/appliances/{appliance}/delete:
+    post:
+      description: Delete appliance.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/appliance'
+      responses:
+        200:
+          description: Deleted an appliance
+  /1/appliances/{appliance}:
+    post:
+      description: Update appliance.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/appliance'
+        - $ref: '#/parameters/applianceImage'
+        - name: nickname
+          in: formData
+          description: Appliance name
+          type: string
+          required: true
+      responses:
+        200:
+          description: Updated an appliance
+          schema:
+            $ref: '#/definitions/Appliance'
+  /1/appliances/{appliance}/aircon_settings:
+    post:
+      description: Update air conditioner settings.
+      security:
+       - oauth2:
+         - sendir
+      parameters:
+        - name: temperature
+          in: formData
+          description: Temperature
+          type: string
+          required: false
+        - name: operation_mode
+          in: formData
+          description: AC operation mode
+          type: string
+          required: false
+        - name: air_volume
+          in: formData
+          description: AC air volume
+          type: string
+          required: false
+        - name: air_direction
+          in: formData
+          description: AC air direction
+          type: string
+          required: false
+        - name: button
+          in: formData
+          description: Button
+          type: string
+          required: false
+        - $ref: '#/parameters/appliance'
+      responses:
+        200:
+          description: Updated air conditioner settings
+  /1/appliances/{appliance}/tv:
+    post:
+      description: Send tv infrared signal.
+      security:
+       - oauth2:
+         - sendir
+      parameters:
+        - $ref: '#/parameters/appliance'
+        - name: button
+          in: formData
+          description: Button name
+          type: string
+          required: true
+      responses:
+        200:
+          description: Updated tv state
+  /1/appliances/{appliance}/light:
+    post:
+      description: Send light infrared signal.
+      security:
+       - oauth2:
+         - sendir
+      parameters:
+        - $ref: '#/parameters/appliance'
+        - name: button
+          in: formData
+          description: Button name
+          type: string
+          required: true
+      responses:
+        200:
+          description: Updated light state
+  /1/appliances/{appliance}/signals:
+    get:
+      description: Fetch signals registered under this appliance.
+      security:
+       - oauth2:
+         - basic.read
+      parameters:
+        - $ref: '#/parameters/appliance'
+      responses:
+        200:
+          description: List of signals
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Signal'
+    post:
+      description: Create a signal under this appliance.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/irsignal'
+        - $ref: '#/parameters/appliance'
+        - $ref: '#/parameters/signalImage'
+        - name: name
+          in: formData
+          description: Signal name
+          type: string
+          required: true
+      responses:
+        201:
+          description: Created signal
+          schema:
+            $ref: '#/definitions/Signal'
+  /1/appliances/{appliance}/signal_orders:
+    post:
+      description: Reorder signals under this appliance.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/appliance'
+        - name: signals
+          in: formData
+          description: List of all signals' IDs comma separated
+          type: string
+          required: true
+      responses:
+        200:
+          description: Reordered signals
+  /1/signals/{signal}:
+    post:
+      description: Update infrared signal.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/signal'
+        - $ref: '#/parameters/signalImage'
+        - name: name
+          in: formData
+          description: Signal name
+          type: string
+          required: true
+      responses:
+        200:
+          description: Updated infrared signal
+  /1/signals/{signal}/delete:
+    post:
+      description: Delete an infrared signal.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/signal'
+      responses:
+        200:
+          description: Deleted a signal
+  /1/signals/{signal}/send:
+    post:
+      description: Send infrared signal.
+      security:
+       - oauth2:
+         - sendir
+      parameters:
+        - $ref: '#/parameters/signal'
+      responses:
+        200:
+          description: Successfully sent infrared signal
+  /1/devices/{device}:
+    post:
+      description: Update Remo
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/device'
+        - name: name
+          in: formData
+          description: Signal name
+          type: string
+          required: true
+      responses:
+        200:
+          description: Updated Remo
+  /1/devices/{device}/delete:
+    post:
+      description: Delete Remo.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/device'
+      responses:
+        200:
+          description: Deleted Remo
+  /1/devices/{device}/temperature_offset:
+    post:
+      description: Update temperature offset.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/device'
+        - name: offset
+          in: formData
+          description: Temperature offset value added to the measured temperature.
+          type: integer
+          required: true
+      responses:
+        200:
+          description: Updated
+  /1/devices/{device}/humidity_offset:
+    post:
+      description: Update humidity offset.
+      security:
+       - oauth2:
+         - basic
+      parameters:
+        - $ref: '#/parameters/device'
+        - name: offset
+          in: formData
+          description: Humidity offset value added to the measured humidity.
+          type: integer
+          required: true
+      responses:
+        200:
+          description: Updated
+
+definitions:
+  User:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/Id'
+      nickname:
+        type: string
+  Devices:
+    type: array
+    items:
+      $ref: '#/definitions/Device'
+  Device:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/Id'
+      name:
+        type: string
+      temperature_offset:
+        type: number
+      humidity_offset:
+        type: number
+      created_at:
+        $ref: '#/definitions/DateTime'
+      updated_at:
+        $ref: '#/definitions/DateTime'
+      firmware_version:
+        type: string
+      mac_address:
+        type: string
+      serial_number:
+        type: string
+      newest_events:
+        type: object
+        properties:
+          te:
+            $ref: '#/definitions/SensorValue'
+          hu:
+            $ref: '#/definitions/SensorValue'
+          il:
+            $ref: '#/definitions/SensorValue'
+          mo:
+            $ref: '#/definitions/SensorValue'
+        example:
+          te:
+            val: 0
+            created_at: "2020-09-10T06:03:58.213Z"
+          hu:
+            val: 0
+            created_at: "2020-09-10T06:03:58.213Z"
+          il:
+            val: 0
+            created_at: "2020-09-10T06:03:58.213Z"
+          mo:
+            val: 1
+            created_at: "2020-09-10T06:03:58.213Z"
+  DeviceCore:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/Id'
+      name:
+        type: string
+      temperature_offset:
+        type: number
+      humidity_offset:
+        type: number
+      created_at:
+        $ref: '#/definitions/DateTime'
+      updated_at:
+        $ref: '#/definitions/DateTime'
+      firmware_version:
+        type: string
+      mac_address:
+        type: string
+      serial_number:
+        type: string
+  Appliance:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/Id'
+      device:
+        $ref: '#/definitions/DeviceCore'
+      model:
+        $ref: '#/definitions/ApplianceModel'
+      nickname:
+        type: string
+      image:
+        $ref: '#/definitions/Image'
+      type:
+        $ref: '#/definitions/ApplianceType'
+      settings:
+        $ref: '#/definitions/AirConParams'
+      aircon:
+        $ref: '#/definitions/AirCon'
+      signals:
+        type: array
+        items:
+          $ref: '#/definitions/Signal'
+      tv:
+        $ref: '#/definitions/TV'
+      light:
+        $ref: '#/definitions/LIGHT'
+      smart_meter:
+        $ref: '#/definitions/SmartMeter'
+  AirConParams:
+    type: object
+    properties:
+      temp:
+        $ref: '#/definitions/Temperature'
+      mode:
+        $ref: '#/definitions/OperationMode'
+      vol:
+        $ref: '#/definitions/AirVolume'
+      dir:
+        $ref: '#/definitions/AirDirection'
+      button:
+        $ref: '#/definitions/ACButton'
+  AirCon:
+    type: object
+    properties:
+      range:
+        type: object
+        properties:
+          modes:
+            type: object
+            properties:
+              cool:
+                $ref: '#/definitions/AirConRangeMode'
+              warm:
+                $ref: '#/definitions/AirConRangeMode'
+              dry:
+                $ref: '#/definitions/AirConRangeMode'
+              blow:
+                $ref: '#/definitions/AirConRangeMode'
+              auto:
+                $ref: '#/definitions/AirConRangeMode'
+          fixedButtons:
+            type: array
+            items:
+              $ref: '#/definitions/ACButton'
+      tempUnit:
+        type: string
+        enum:
+          - ""
+          - c
+          - f
+  AirConRangeMode:
+    type: object
+    properties:
+      temp:
+        type: array
+        items:
+          $ref: '#/definitions/Temperature'
+      vol:
+        type: array
+        items:
+          $ref: '#/definitions/AirVolume'
+      dir:
+        type: array
+        items:
+          $ref: '#/definitions/AirDirection'
+  Signal:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/Id'
+      name:
+        type: string
+      image:
+        $ref: '#/definitions/Image'
+  ApplianceModel:
+    type: object
+    properties:
+      id:
+        $ref: '#/definitions/Id'
+      manufacturer:
+        type: string
+      remote_name:
+        type: string
+      name:
+        type: string
+      image:
+        $ref: '#/definitions/Image'
+  ApplianceModelAndParam:
+    type: object
+    properties:
+      model:
+        $ref: '#/definitions/ApplianceModel'
+      params:
+        $ref: '#/definitions/AirConParams'
+  ApplianceType:
+    type: string
+    description: Type of the appliance. "AC" (Air conditioner), "TV" and "LIGHT" are 1st class citizen appliance, which is included in our IRDB (InfraRed signals DataBase). The "ApplianceModel" stores meta data about the appliance. We provide AC specific UI. Everything else is "IR". We just learn the signals from the remote and store them, and when users tap the button on the smartphone app, our server sends it through Remo.
+    default: AC
+    enum:
+      - AC
+      - TV
+      - LIGHT
+      - IR
+  Id:
+    type: string
+    format: uuid
+  Image:
+    type: string
+    description: |
+      Basename of the image file included in the app. Ex: "ico_ac_1"
+  DateTime:
+    type: string
+    format: date-time
+  OperationMode:
+    type: string
+    description: The range of OperationModes which the air conditioner accepts depends on the air conditioner model. Check the 'AirConRangeMode' information in the response for the range of the particular air conditioner model.
+    enum:
+      - ""
+      - cool
+      - warm
+      - dry
+      - blow
+      - auto
+  Temperature:
+    type: string
+    description: The temperature in string format. The unit is described in Aircon object. The range of Temperatures which the air conditioner accepts depends on the air conditioner model and operation mode. Check the 'AirConRangeMode' information in the response for the range of the particular air conditioner model and operation mode.
+    x-example:
+      - ""
+      - "0"
+      - "38"
+      - "80"
+  AirVolume:
+    type: string
+    description: Empty means automatic. Numbers express the amount of volume. The range of AirVolumes which the air conditioner accepts depends on the air conditioner model and operation mode. Check the 'AirConRangeMode' information in the response for the range of the particular air conditioner model and operation mode.
+    enum:
+      - ""
+      - "auto"
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+      - "6"
+      - "7"
+      - "8"
+      - "9"
+      - "10"
+  AirDirection:
+    type: string
+    description: Empty means automatic.
+    enum:
+      - ""
+  ACButton:
+    type: string
+    description: Specify "power-off" always if you want the air conditioner powered off. Empty means powered on.
+    enum:
+      - ""
+      - "power-off"
+  SensorValue:
+    type: object
+    description: |
+      The reference key to SensorValue means "te" = temperature, "hu" = humidity, "il" = illumination, "mo" = movement.
+      The val of "mo" is always 1 and when movement event is captured created_at is updated.
+    properties:
+      val:
+        type: number
+        format: float
+      created_at:
+        $ref: '#/definitions/DateTime'
+  TV:
+    type: object
+    properties:
+      state:
+        $ref: '#/definitions/TVState'
+      buttons:
+        type: array
+        items:
+          $ref: '#/definitions/Button'
+  LIGHT:
+    type: object
+    properties:
+      state:
+        $ref: '#/definitions/LIGHTState'
+      buttons:
+        type: array
+        items:
+          $ref: '#/definitions/Button'
+  Button:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Name of button. It is used for "POST /1/{applaince}/tv" and "POST /1/{appliance}/light".
+      image:
+        $ref: '#/definitions/Image'
+      label:
+        type: string
+        description: Label of button.
+  TVState:
+    type: object
+    properties:
+      input:
+        type: string
+        enum:
+          - "t"
+          - "bs"
+          - "cs"
+  LIGHTState:
+    type: object
+    properties:
+      brightness:
+        type: string
+      power:
+        type: string
+        enum:
+          - "on"
+          - "off"
+      last_button:
+        type: string
+  SmartMeter:
+    type: object
+    properties:
+      echonetlite_properties:
+        type: array
+        items:
+          $ref: '#/definitions/EchonetLiteProperty'
+  EchonetLiteProperty:
+    type: object
+    description: |
+      The ECHONET lite properties fetched from the appliance.
+      See "Detailed Requirements for ECHONET Device Objects" for more details.
+      ref. https://echonet.jp/spec_object_rl_en/
+    properties:
+      name:
+        type: string
+      epc:
+        type: integer
+        description: ECHONET Property
+      val:
+        type: string
+      updated_at:
+        $ref: '#/definitions/DateTime'

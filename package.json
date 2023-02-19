@@ -1,0 +1,36 @@
+{
+  "name": "remo-allowlist-alarm",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "npm run codegen && esbuild src/app.ts --bundle --platform=node --target=node16 --outdir=dist",
+    "start": "node dist/app.js",
+    "dev": "npm run codegen && ts-node-dev ./src/app.ts",
+    "check": "tsc",
+    "update-schema": "wget https://swagger.nature.global/swagger.yml",
+    "codegen": "npx openapi-generator-cli generate -g typescript-axios -i swagger.yml -o src/generated"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kgtkr/remo-allowlist-alarm.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kgtkr/remo-allowlist-alarm/issues"
+  },
+  "homepage": "https://github.com/kgtkr/remo-allowlist-alarm#readme",
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.5.2",
+    "@types/node": "^18.14.0",
+    "esbuild": "^0.15.8",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^4.8.3"
+  },
+  "dependencies": {
+    "axios": "^0.27.2",
+    "castv2-client": "^1.2.0",
+    "discord.js": "^14.7.1",
+    "ioredis": "^5.3.1"
+  }
+}
