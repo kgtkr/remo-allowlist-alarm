@@ -149,7 +149,6 @@ async function run() {
       new Date(detectedAtStr).getTime() + 10 * 60 * 1000 > now.getTime()
   );
 
-  await redis.set(DETECTED_ATS, JSON.stringify(filteredDetectedAts));
   if (filteredDetectedAts.length != 0) {
     console.log(
       `Detected at count past 10 minutes: ${filteredDetectedAts.length}`
@@ -157,8 +156,10 @@ async function run() {
   }
   // 過去10分で5回以上反応していたら寝ている判定
   if (filteredDetectedAts.length < 5) {
+    await redis.set(DETECTED_ATS, JSON.stringify(filteredDetectedAts));
     return;
   }
+  await redis.del(DETECTED_ATS);
   await axios.post(discordWebhookUrl, {
     content: `睡眠が検知されました`,
   });
