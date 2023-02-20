@@ -132,24 +132,31 @@ async function run() {
   const detectedAts: string[] = JSON.parse(
     (await redis.get(DETECTED_ATS)) ?? "[]"
   );
-  // 過去10分以内に検知されたものだけを残す
-  const filteredDetectedAts = detectedAts.filter(
-    (detectedAtStr) =>
-      new Date(detectedAtStr).getTime() + 10 * 60 * 1000 > now.getTime()
-  );
-  const detectedAtSet = new Set(filteredDetectedAts);
-
   const detectedAtStr = device.newest_events?.mo?.created_at;
   if (detectedAtStr === undefined) {
     console.log("No motion detected.");
     return;
   }
-  const detectedAt = new Date(detectedAtStr);
+  const detectedAt = new Date(detectedAtStr).toISOString();
+  if (!detectedAts.includes(detectedAt)) {
+    console.log(`Motion detected at ${detectedAt}`);
+    detectedAts.push(detectedAt);
+  }
 
-  detectedAtSet.add(detectedAt.toISOString());
-  await redis.set(DETECTED_ATS, JSON.stringify(Array.from(detectedAtSet)));
+  // 過去10分以内に検知されたものだけを残す
+  const filteredDetectedAts = detectedAts.filter(
+    (detectedAtStr) =>
+      new Date(detectedAtStr).getTime() + 10 * 60 * 1000 > now.getTime()
+  );
+
+  await redis.set(DETECTED_ATS, JSON.stringify(filteredDetectedAts));
+  if (filteredDetectedAts.length != 0) {
+    console.log(
+      `Detected at count past 10 minutes: ${filteredDetectedAts.length}`
+    );
+  }
   // 過去10分で5回以上反応していたら寝ている判定
-  if (detectedAtSet.size < 5) {
+  if (filteredDetectedAts.length < 5) {
     return;
   }
   await axios.post(discordWebhookUrl, {
@@ -172,6 +179,7 @@ async function run() {
 }
 
 async function main() {
+  console.log("起動");
   const rest = new DiscordRest({ version: "10" }).setToken(discordToken);
   await rest.put(
     Routes.applicationGuildCommands(discordAppId, discordGuildId),
