@@ -93,8 +93,6 @@ discordClient.on("interactionCreate", async (interaction) => {
           const [hourStr, minuteStr] = durationStr.split(":");
           result.setHours(Number(hourStr));
           result.setMinutes(Number(minuteStr));
-          result.setSeconds(0);
-          result.setMilliseconds(0);
           if (result < now) {
             result.setDate(result.getDate() + 1);
           }
@@ -103,6 +101,8 @@ discordClient.on("interactionCreate", async (interaction) => {
           throw new Error("duration is invalid");
         }
       })();
+      until.setSeconds(0);
+      until.setMilliseconds(0);
       await redis.set(ALLOW_SLEEP_UNTIL, until.toISOString());
       await interaction.reply(
         `${until.toLocaleString()} まで睡眠を許可しました。`
