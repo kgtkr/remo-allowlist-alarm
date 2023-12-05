@@ -93,6 +93,8 @@ discordClient.on("interactionCreate", async (interaction) => {
           const [hourStr, minuteStr] = durationStr.split(":");
           result.setHours(Number(hourStr));
           result.setMinutes(Number(minuteStr));
+          result.setSeconds(0);
+          result.setMilliseconds(0);
           if (result < now) {
             result.setDate(result.getDate() + 1);
           }
