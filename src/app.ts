@@ -39,6 +39,8 @@ const discordToken = getEnv("DISCORD_TOKEN");
 const discordAppId = getEnv("DISCORD_APP_ID");
 const discordGuildId = getEnv("DISCORD_GUILD_ID");
 const discordWebhookUrl = getEnv("DISCORD_WEBHOOK_URL");
+const countThreshold = Number(getEnv("COUNT_THRESHOLD", "5"));
+const durationThreshold = Number(getEnv("DURATION_THRESHOLD", "15"));
 
 const client = new DefaultApi(
   new Configuration({
@@ -113,15 +115,7 @@ discordClient.on("interactionCreate", async (interaction) => {
 
 async function run() {
   const now = new Date();
-  const allowSleepUntilStr = await redis.get(ALLOW_SLEEP_UNTIL);
-  if (allowSleepUntilStr !== null) {
-    const allowSleepUntil = new Date(allowSleepUntilStr);
-    if (allowSleepUntil > now) {
-      return;
-    } else {
-      await redis.del(ALLOW_SLEEP_UNTIL);
-    }
-  }
+
   const device = (await client._1devicesGet()).data.find(
     (device) => device.id === deviceId
   );
@@ -143,21 +137,32 @@ async function run() {
     detectedAts.push(detectedAt);
   }
 
-  // 過去10分以内に検知されたものだけを残す
+  // 過去N分以内に検知されたものだけを残す
   const filteredDetectedAts = detectedAts.filter(
     (detectedAtStr) =>
-      new Date(detectedAtStr).getTime() + 10 * 60 * 1000 > now.getTime()
+      new Date(detectedAtStr).getTime() + durationThreshold * 60 * 1000 >
+      now.getTime()
   );
 
   if (filteredDetectedAts.length != 0) {
     console.log(
-      `Detected at count past 10 minutes: ${filteredDetectedAts.length}`
+      `Detected at count past ${durationThreshold} minutes: ${filteredDetectedAts.length}`
     );
   }
-  // 過去10分で5回以上反応していたら寝ている判定
-  if (filteredDetectedAts.length < 5) {
+  // 過去N分でM回以上反応していたら寝ている判定
+  if (filteredDetectedAts.length < countThreshold) {
     await redis.set(DETECTED_ATS, JSON.stringify(filteredDetectedAts));
     return;
+  }
+  // 睡眠許可中なら何もしない
+  const allowSleepUntilStr = await redis.get(ALLOW_SLEEP_UNTIL);
+  if (allowSleepUntilStr !== null) {
+    const allowSleepUntil = new Date(allowSleepUntilStr);
+    if (allowSleepUntil > now) {
+      return;
+    } else {
+      await redis.del(ALLOW_SLEEP_UNTIL);
+    }
   }
   await redis.del(DETECTED_ATS);
   await axios.post(discordWebhookUrl, {
